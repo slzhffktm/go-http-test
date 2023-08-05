@@ -14,8 +14,8 @@ import (
 	httptest "github.com/slzhffktm/go-http-test"
 )
 
-const baseURL = "http://localhost:3001"
-const address = "localhost:3001"
+const baseURL = "http://127.0.0.1:3001"
+const address = "127.0.0.1:3001"
 
 var (
 	ctx = context.Background()
@@ -229,5 +229,34 @@ func (s *serverTestSuite) TestSimulateTimeout() {
 	s.Error(err)
 	s.True(os.IsTimeout(err))
 
+	s.Equal(1, server.GetNCalls(path, http.MethodGet))
+}
+
+func (s *serverTestSuite) TestHTTP2() {
+	server, err := httptest.NewServer(address, httptest.ServerConfig{
+		EnableHTTP2: true,
+	})
+	s.NoError(err)
+	defer server.Close()
+
+	path := "/some-path"
+	expectedResBody := []byte(`{"res":"ponse"}`)
+
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
+		w.SetStatusCode(http.StatusOK)
+		w.SetBodyBytes(expectedResBody)
+	})
+
+	res, _, err := s.httpClient.Do(
+		ctx,
+		http.MethodGet,
+		path,
+		nil,
+		nil,
+		nil,
+	)
+	s.NoError(err)
+
+	s.Equal(http.StatusOK, res.StatusCode)
 	s.Equal(1, server.GetNCalls(path, http.MethodGet))
 }

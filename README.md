@@ -25,12 +25,10 @@ Here's an example of how you can use go-http-test to test an HTTP endpoint that 
 package main_test
 
 import (
-	"context"
 	"net/http"
-	"net/url"
 	"testing"
 
-	"github.com/slzhffktm/go-http-test"
+	httptest "github.com/slzhffktm/go-http-test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,24 +42,43 @@ func TestExample(t *testing.T) {
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
 	// Register a custom handler for the specified path
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
-    // You can do validation for the request here, e.g. method, request body, etc.
-    assert.Equal(t, http.MethodGet, r.Method)
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
+        // You can do validation for the request here, e.g. request header, body, etc
+        assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		w.SetStatusCode(http.StatusOK)
 		w.SetBodyBytes(expectedResBody)
 	})
 
-	res, err := http.Get("http://localhost:3001/unknown")
+	// You can also return a JSON by using a struct with json tag/map[string]any.
+	type resStruct struct {
+		Abcd string `json:"abcd"`
+		Efgh int    `json:"efgh"`
+	}
+	server.RegisterHandler(path, http.MethodPost, func(w httptest.ResponseWriter, r *http.Request) {
+		// You can do validation for the request here, e.g. request header, body, etc
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
-  // Assert total number of call to the path
-	assert.Equal(t, 1, server.GetNCalls(path))
+		w.SetBodyJSON(resStruct{
+			Abcd: "abcd",
+			Efgh: 1,
+		})
+		w.Header().Set("Content-Type", "application/json")
+		w.SetStatusCode(http.StatusOK)
+	})
+
+	res, err := http.Get("http://localhost:8080/some-path")
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, res.StatusCode)
+
+    // Assert total number of call to the path
+	assert.Equal(t, 1, server.GetNCalls(path, http.MethodGet))
 
 	// Reset the call counter for the path
 	server.ResetNCalls()
 
 	// Check the number of calls after resetting (should be 0)
-	assert.Equal(t, 0, server.GetNCalls(path))
+	assert.Equal(t, 0, server.GetNCalls(path, http.MethodGet))
 }
 ```
 

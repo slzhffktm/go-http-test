@@ -19,7 +19,6 @@ type ServerHandlerFunc func(w ResponseWriter, r *http.Request)
 
 type ServerConfig struct {
 	EnableHTTP2 bool
-	UseTLS      bool
 }
 
 // NewServer creates and starts new http test server.
@@ -51,11 +50,7 @@ func NewServer(address string, config ServerConfig) (*Server, error) {
 		ts.EnableHTTP2 = true
 	}
 
-	if config.UseTLS {
-		ts.StartTLS()
-	} else {
-		ts.Start()
-	}
+	ts.Start()
 
 	server.server = ts
 
