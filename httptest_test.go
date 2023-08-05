@@ -64,7 +64,7 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 		Efgh int    `json:"efgh"`
 	}
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodPost, func(w httptest.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodPost, r.Method)
 		s.Equal(path, r.URL.Path)
 
@@ -94,7 +94,7 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 	s.Equal(200, res.StatusCode)
 	s.Equal(expectedResBody, resBody)
 
-	s.Equal(1, server.GetNCalls(path))
+	s.Equal(1, server.GetNCalls(path, http.MethodPost))
 }
 
 func (s *serverTestSuite) TestGet_WithQueryParams() {
@@ -106,7 +106,7 @@ func (s *serverTestSuite) TestGet_WithQueryParams() {
 	path := "/some-path"
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
 		s.Equal("param", r.FormValue("query"))
 		s.Equal(http.MethodGet, r.Method)
 		s.Equal(path, r.URL.Path)
@@ -132,7 +132,7 @@ func (s *serverTestSuite) TestGet_WithQueryParams() {
 	s.Equal(200, res.StatusCode)
 	s.Equal(expectedResBody, resBody)
 
-	s.Equal(1, server.GetNCalls(path))
+	s.Equal(1, server.GetNCalls(path, http.MethodGet))
 }
 
 func (s *serverTestSuite) TestGet_MultipleTimes_ResetNCalls() {
@@ -143,7 +143,7 @@ func (s *serverTestSuite) TestGet_MultipleTimes_ResetNCalls() {
 	path := "/some-path"
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
 		w.SetStatusCode(http.StatusOK)
 		w.SetBodyBytes(expectedResBody)
 	})
@@ -166,9 +166,9 @@ func (s *serverTestSuite) TestGet_MultipleTimes_ResetNCalls() {
 		s.Equal(expectedResBody, resBody)
 	}
 
-	s.Equal(10, server.GetNCalls(path))
+	s.Equal(10, server.GetNCalls(path, http.MethodGet))
 	server.ResetNCalls()
-	s.Equal(0, server.GetNCalls(path))
+	s.Equal(0, server.GetNCalls(path, http.MethodGet))
 }
 
 func (s *serverTestSuite) TestReregisterHandler_ShouldOverwrite() {
@@ -179,12 +179,12 @@ func (s *serverTestSuite) TestReregisterHandler_ShouldOverwrite() {
 	path := "/some-path/subpath"
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
 		w.SetStatusCode(http.StatusOK)
 		w.SetBodyBytes(expectedResBody)
 	})
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
 		w.Header().Set("some", "header")
 		w.SetStatusCode(http.StatusNotFound)
 	})
@@ -201,7 +201,7 @@ func (s *serverTestSuite) TestReregisterHandler_ShouldOverwrite() {
 	s.Equal(404, res.StatusCode)
 	s.Equal("header", res.Header.Get("some"))
 
-	s.Equal(1, server.GetNCalls(path))
+	s.Equal(1, server.GetNCalls(path, http.MethodGet))
 }
 
 func (s *serverTestSuite) TestSimulateTimeout() {
@@ -212,7 +212,7 @@ func (s *serverTestSuite) TestSimulateTimeout() {
 	path := "/some-path"
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
-	server.RegisterHandler(path, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.SetStatusCode(http.StatusOK)
 		w.SetBodyBytes(expectedResBody)
@@ -229,5 +229,5 @@ func (s *serverTestSuite) TestSimulateTimeout() {
 	s.Error(err)
 	s.True(os.IsTimeout(err))
 
-	s.Equal(1, server.GetNCalls(path))
+	s.Equal(1, server.GetNCalls(path, http.MethodGet))
 }

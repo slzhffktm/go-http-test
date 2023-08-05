@@ -10,10 +10,11 @@ import (
 // Server is a mock http server for testing.
 type Server struct {
 	server  *httptest.Server
-	handler map[string]ServerHandlerFunc
-	calls   map[string]int
+	handler map[string]map[string]ServerHandlerFunc
+	calls   map[string]map[string]int
 }
 
+// ServerHandlerFunc is the interface of the handler function.
 type ServerHandlerFunc func(w ResponseWriter, r *http.Request)
 
 type ServerConfig struct {
@@ -30,13 +31,13 @@ func NewServer(address string, config ServerConfig) (*Server, error) {
 	}
 
 	server := &Server{
-		handler: map[string]ServerHandlerFunc{},
-		calls:   map[string]int{},
+		handler: map[string]map[string]ServerHandlerFunc{},
+		calls:   map[string]map[string]int{},
 	}
 
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.calls[r.URL.Path]++
-		server.handler[r.URL.Path](ResponseWriter{w}, r)
+		server.calls[r.URL.Path][r.Method]++
+		server.handler[r.URL.Path][r.Method](ResponseWriter{w}, r)
 	}))
 
 	// httptest.NewUnstartedServer creates a listener.
@@ -67,24 +68,30 @@ func (s *Server) Close() {
 }
 
 // GetNCalls returns the number of calls for a path.
-func (s *Server) GetNCalls(path string) int {
-	return s.calls[path]
+func (s *Server) GetNCalls(path string, method string) int {
+	return s.calls[path][method]
 }
 
 // ResetNCalls resets the number of calls for all paths.
 func (s *Server) ResetNCalls() {
-	for k := range s.calls {
-		s.calls[k] = 0
+	for path := range s.calls {
+		for method := range s.calls[path] {
+			s.calls[path][method] = 0
+		}
 	}
 }
 
 // RegisterHandler registers handler of a path.
 // Registering same path twice will overwrite the previous handler.
-func (s *Server) RegisterHandler(path string, handler ServerHandlerFunc) {
-	s.handler[path] = handler
+func (s *Server) RegisterHandler(path string, method string, handler ServerHandlerFunc) {
+	if _, ok := s.handler[path]; !ok {
+		s.handler[path] = map[string]ServerHandlerFunc{}
+		s.calls[path] = map[string]int{}
+	}
+	s.handler[path][method] = handler
 }
 
 // RemoveHandler removes registered handler of a path.
-func (s *Server) RemoveHandler(path string) {
-	delete(s.handler, path)
+func (s *Server) RemoveHandler(path string, method string) {
+	delete(s.handler[path], method)
 }
