@@ -66,7 +66,7 @@ func TestExample(t *testing.T) {
 		assert.NoError(t, json.Unmarshal(reqBodyByte, &reqBody))
 		assert.Equal(t, "abcd", reqBody["abcd"])
 
-		// You can also generate different response body based on the request body.
+		// You can also generate different response body based on the request body
 		w.SetBodyJSON(resStruct{
 			Abcd: reqBody["abcd"],
 			Efgh: 1,
@@ -75,6 +75,7 @@ func TestExample(t *testing.T) {
 		w.SetStatusCode(http.StatusOK)
 	})
 
+	// Test doing a GET request to the path
 	res, err := http.Get("http://localhost:8080/some-path")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
@@ -82,11 +83,8 @@ func TestExample(t *testing.T) {
     // Assert total number of call to the path
 	assert.Equal(t, 1, server.GetNCalls(path, http.MethodGet))
 
-	// Reset the call counter for the path
+	// Reset the call counters back to 0
 	server.ResetNCalls()
-
-	// Check the number of calls after resetting (should be 0)
-	assert.Equal(t, 0, server.GetNCalls(path, http.MethodGet))
 }
 ```
 
