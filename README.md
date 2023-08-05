@@ -11,7 +11,7 @@ go-http-test is an open source library for Go that extends the functionality of 
 
 ## Installation
 
-To use go-http-test in your Go projects, you need to have Go installed and set up. Then, you can install the library using `go get`:
+To use go-http-test in your Go projects, you need to have Go (>=1.20) installed and set up. Then, you can install the library using `go get`:
 
 ```bash
 go get github.com/slzhffktm/go-http-test
