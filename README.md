@@ -25,6 +25,8 @@ Here's an example of how you can use go-http-test to test an HTTP endpoint that 
 package main_test
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -43,14 +45,13 @@ func TestExample(t *testing.T) {
 
 	// Register a custom handler for the specified path
 	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
-        // You can do validation for the request here, e.g. request header, body, etc
-        assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+        // You can do validation for the request here, e.g. request header, body, query params, etc
 
 		w.SetStatusCode(http.StatusOK)
 		w.SetBodyBytes(expectedResBody)
 	})
 
-	// You can also return a JSON by using a struct with json tag/map[string]any.
+	// You can also return a JSON by using a struct with json tag or map[string]any.
 	type resStruct struct {
 		Abcd string `json:"abcd"`
 		Efgh int    `json:"efgh"`
@@ -59,8 +60,15 @@ func TestExample(t *testing.T) {
 		// You can do validation for the request here, e.g. request header, body, etc
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
+		reqBodyByte, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		var reqBody map[string]any
+		assert.NoError(t, json.Unmarshal(reqBodyByte, &reqBody))
+		assert.Equal(t, "abcd", reqBody["abcd"])
+
+		// You can also generate different response body based on the request body.
 		w.SetBodyJSON(resStruct{
-			Abcd: "abcd",
+			Abcd: reqBody["abcd"],
 			Efgh: 1,
 		})
 		w.Header().Set("Content-Type", "application/json")
