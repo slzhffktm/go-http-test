@@ -1,6 +1,6 @@
 # go-http-test: HTTP Testing Library for Go
 
-go-http-test is an open source library for Go that extends the functionality of the `net/http/httptest` package. It provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease. This library is especially useful for writing unit tests and integration tests for HTTP-based applications in Go.
+go-http-test is a library for Go that extends the functionality of the `net/http/httptest` package. It provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease. This library is especially useful for writing unit tests and integration tests for HTTP-based applications in Go.
 
 ## Features
 
