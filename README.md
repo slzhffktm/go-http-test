@@ -1,6 +1,9 @@
 # go-http-test: HTTP Testing Library for Go
 
-go-http-test is a library for Go that extends the functionality of the `net/http/httptest` package. It provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease. This library is especially useful for writing unit tests and integration tests for HTTP-based applications in Go.
+go-http-test is a library for Go that provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease.
+This library is especially useful for writing unit tests and integration tests for HTTP-based applications in Go.
+This library uses https://github.com/julienschmidt/httprouter for routing mechanism,
+so it supports all routing feature from provided, e.g. path parameter using `/:pathparam`.
 
 ## Features
 
@@ -8,6 +11,7 @@ go-http-test is a library for Go that extends the functionality of the `net/http
 - Register custom handlers for different paths on the server.
 - Track the number of calls made to specific paths on the server.
 - Reset the call counters for individual paths, facilitating multiple test scenarios.
+- Reregister handler same path will overwrite the previous handler.
 
 ## Installation
 
@@ -40,25 +44,18 @@ func TestExample(t *testing.T) {
 	assert.NoError(t, err)
 	defer server.Close()
 
-	path := "/some-path"
+	path := "/some-path/:id"
 	expectedResBody := []byte(`{"res":"ponse"}`)
-
-	// Register a custom handler for the specified path
-	server.RegisterHandler(path, http.MethodGet, func(w httptest.ResponseWriter, r *http.Request) {
-        // You can do validation for the request here, e.g. request header, body, query params, etc
-
-		w.SetStatusCode(http.StatusOK)
-		w.SetBodyBytes(expectedResBody)
-	})
 
 	// You can also return a JSON by using a struct with json tag or map[string]any.
 	type resStruct struct {
 		Abcd string `json:"abcd"`
 		Efgh int    `json:"efgh"`
 	}
-	server.RegisterHandler(path, http.MethodPost, func(w httptest.ResponseWriter, r *http.Request) {
+	server.RegisterHandler(http.MethodPost, path, func(w httptest.ResponseWriter, r *httptest.Request) {
 		// You can do validation for the request here, e.g. request header, body, etc
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		assert.Equal(t, "1d", r.Params.ByName("id"))
 
 		reqBodyByte, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
@@ -76,12 +73,12 @@ func TestExample(t *testing.T) {
 	})
 
 	// Test doing a GET request to the path
-	res, err := http.Get("http://localhost:8080/some-path")
+	res, err := http.Get("http://localhost:8080/some-path/1d")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, res.StatusCode)
 
     // Assert total number of call to the path
-	assert.Equal(t, 1, server.GetNCalls(path, http.MethodGet))
+	assert.Equal(t, 1, server.GetNCalls(http.MethodGet, path))
 
 	// Reset the call counters back to 0
 	server.ResetNCalls()

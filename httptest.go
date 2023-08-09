@@ -1,24 +1,31 @@
 package httptest
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
-	"net/http/httptest"
+
+	"github.com/slzhffktm/httprouter"
 )
 
 // Server is a mock http server for testing.
 type Server struct {
-	server  *httptest.Server
-	handler map[string]map[string]ServerHandlerFunc
-	calls   map[string]map[string]int
+	httpServer *http.Server
+	// calls store map[method][path]count
+	calls  map[string]map[string]int
+	router *httprouter.Router
+}
+
+type Request struct {
+	*http.Request
+	Params httprouter.Params
 }
 
 // ServerHandlerFunc is the interface of the handler function.
-type ServerHandlerFunc func(w ResponseWriter, r *http.Request)
+type ServerHandlerFunc func(w ResponseWriter, r *Request)
 
 type ServerConfig struct {
-	EnableHTTP2 bool
+	// Nothing here yet.
 }
 
 // NewServer creates and starts new http test server.
@@ -29,42 +36,36 @@ func NewServer(address string, config ServerConfig) (*Server, error) {
 		panic(err)
 	}
 
+	router := httprouter.New()
+
+	httpServer := &http.Server{
+		Addr:    address,
+		Handler: router,
+	}
+
 	server := &Server{
-		handler: map[string]map[string]ServerHandlerFunc{},
-		calls:   map[string]map[string]int{},
+		httpServer: httpServer,
+		calls:      map[string]map[string]int{},
+		router:     router,
 	}
 
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.calls[r.URL.Path][r.Method]++
-		server.handler[r.URL.Path][r.Method](ResponseWriter{w}, r)
-	}))
-
-	// httptest.NewUnstartedServer creates a listener.
-	// Close that listener and replace with the one we created.
-	if err = ts.Listener.Close(); err != nil {
-		return nil, fmt.Errorf("default listener.Close(): %w", err)
-	}
-	ts.Listener = l
-
-	if config.EnableHTTP2 {
-		ts.EnableHTTP2 = true
-	}
-
-	ts.Start()
-
-	server.server = ts
+	go func() {
+		if err = httpServer.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	}()
 
 	return server, nil
 }
 
 // Close closes the server.
-func (s *Server) Close() {
-	s.server.Close()
+func (s *Server) Close() error {
+	return s.httpServer.Close()
 }
 
 // GetNCalls returns the number of calls for a path.
-func (s *Server) GetNCalls(path string, method string) int {
-	return s.calls[path][method]
+func (s *Server) GetNCalls(method, path string) int {
+	return s.calls[method][path]
 }
 
 // ResetNCalls resets the number of calls for all paths.
@@ -78,15 +79,16 @@ func (s *Server) ResetNCalls() {
 
 // RegisterHandler registers handler of a path.
 // Registering same path twice will overwrite the previous handler.
-func (s *Server) RegisterHandler(path string, method string, handler ServerHandlerFunc) {
-	if _, ok := s.handler[path]; !ok {
-		s.handler[path] = map[string]ServerHandlerFunc{}
-		s.calls[path] = map[string]int{}
+func (s *Server) RegisterHandler(method string, path string, handler ServerHandlerFunc) {
+	if s.calls[method] == nil {
+		s.calls[method] = map[string]int{}
 	}
-	s.handler[path][method] = handler
-}
 
-// RemoveHandler removes registered handler of a path.
-func (s *Server) RemoveHandler(path string, method string) {
-	delete(s.handler[path], method)
+	s.router.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		s.calls[method][path]++
+		handler(ResponseWriter{w: w}, &Request{
+			Request: r,
+			Params:  params,
+		})
+	})
 }
