@@ -24,7 +24,9 @@ go get github.com/slzhffktm/go-http-test
 
 ## Example Usage
 
-Here's an example of how you can use go-http-test to test an HTTP endpoint that returns a predefined response:
+To see real life example, you can check it out in the [/examples folder](/examples)
+
+Here's a short example of how you can use go-http-test to test an HTTP endpoint that returns a predefined response:
 
 ```go
 package main_test
