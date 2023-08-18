@@ -1,4 +1,4 @@
-package httptest_test
+package httpclient
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ type HttpClient struct {
 	httpClient *http.Client
 }
 
-func NewHttpClient(baseUrl string, client *http.Client) *HttpClient {
+func New(baseUrl string, client *http.Client) *HttpClient {
 	u, err := url.Parse(baseUrl)
 	if err != nil {
 		panic(err)

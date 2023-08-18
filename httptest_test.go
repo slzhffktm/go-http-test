@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	httptest "github.com/slzhffktm/go-http-test"
+	"github.com/slzhffktm/go-http-test/internal/httpclient"
 )
 
 const baseURL = "http://127.0.0.1:3001"
@@ -23,14 +24,14 @@ var (
 
 type serverTestSuite struct {
 	suite.Suite
-	httpClient *HttpClient
+	httpClient *httpclient.HttpClient
 }
 
 func TestServerTestSuite(t *testing.T) {
 	httpClient := http.DefaultClient
 	httpClient.Timeout = 500 * time.Millisecond
 	suite.Run(t, &serverTestSuite{
-		httpClient: NewHttpClient(baseURL, httpClient),
+		httpClient: httpclient.New(baseURL, httpClient),
 	})
 }
 
