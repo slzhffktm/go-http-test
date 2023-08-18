@@ -6,6 +6,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/slzhffktm/httprouter v0.0.2 h1:alUI45TxyQkJpLOL0EmYmO+9KzH8L5JV5yyq/nbxFEA=
 github.com/slzhffktm/httprouter v0.0.2/go.mod h1:WbWqTm2WQoxF5XQm7wLrLgGEWCSBrvLv0x3CF3THxnk=
+github.com/slzhffktm/httprouter v0.0.3 h1:GJPKfirTnAqe+L/yzFW/fMRvlykbqhbRMjFwzs0qRbM=
+github.com/slzhffktm/httprouter v0.0.3/go.mod h1:WbWqTm2WQoxF5XQm7wLrLgGEWCSBrvLv0x3CF3THxnk=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

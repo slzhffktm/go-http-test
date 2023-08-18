@@ -65,7 +65,12 @@ func (s *Server) Close() error {
 
 // GetNCalls returns the number of calls for a path.
 func (s *Server) GetNCalls(method, path string) int {
-	return s.calls[method][path]
+	calls, ok := s.calls[method][path]
+	if !ok {
+		return 0
+	}
+
+	return calls
 }
 
 // ResetNCalls resets the number of calls for all paths.
@@ -91,4 +96,10 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 			Params:  params,
 		})
 	})
+}
+
+// ResetAll resets all the calls and handlers.
+func (s *Server) ResetAll() {
+	s.router.ClearHandlers()
+	s.calls = map[string]map[string]int{}
 }

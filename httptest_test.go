@@ -267,3 +267,32 @@ func (s *serverTestSuite) TestSimulateTimeout() {
 
 	s.Equal(1, server.GetNCalls(http.MethodGet, path))
 }
+
+func (s *serverTestSuite) TestResetAll() {
+	server, err := httptest.NewServer(address, httptest.ServerConfig{})
+	s.NoError(err)
+	defer server.Close()
+
+	path := "/some-path/subpath"
+	expectedResBody := []byte(`{"res":"ponse"}`)
+
+	server.RegisterHandler(http.MethodGet, path, func(w httptest.ResponseWriter, r *httptest.Request) {
+		w.SetStatusCode(http.StatusOK)
+		w.SetBodyBytes(expectedResBody)
+	})
+
+	server.ResetAll()
+
+	res, _, err := s.httpClient.Do(
+		ctx,
+		http.MethodGet,
+		path,
+		nil,
+		nil,
+		nil,
+	)
+	s.NoError(err)
+	s.Equal(http.StatusNotFound, res.StatusCode)
+
+	s.Equal(0, server.GetNCalls(http.MethodGet, path))
+}
