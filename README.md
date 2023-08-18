@@ -12,6 +12,7 @@ so it supports all routing feature from provided, e.g. path parameter using `/:p
 - Track the number of calls made to specific paths on the server.
 - Reset the call counters for individual paths, facilitating multiple test scenarios.
 - Reregister handler same path will overwrite the previous handler.
+- Reset all function to clear out the calls & handlers.
 
 ## Installation
 
