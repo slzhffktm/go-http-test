@@ -2,8 +2,7 @@
 
 go-http-test is a library for Go that provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease.
 This library is especially useful for writing unit tests and end-to-end tests for HTTP-based applications in Go.
-This library uses https://github.com/julienschmidt/httprouter for routing mechanism,
-so it supports all routing feature from provided, e.g. path parameter using `/:pathparam`.
+This library also supports path parameter using `/:pathparam`.
 
 ## Features
 
@@ -16,7 +15,7 @@ so it supports all routing feature from provided, e.g. path parameter using `/:p
 
 ## Installation
 
-To use go-http-test in your Go projects, you need to have Go (>=1.20) installed and set up. Then, you can install the library using `go get`:
+To use go-http-test in your Go projects, you need to have Go (>=1.22) installed and set up. Then, you can install the library using `go get`:
 
 ```bash
 go get github.com/slzhffktm/go-http-test
