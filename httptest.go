@@ -2,23 +2,24 @@ package httptest
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
-
-	"github.com/slzhffktm/httprouter"
+	"regexp"
 )
 
 // Server is a mock http server for testing.
 type Server struct {
 	httpServer *http.Server
 	// calls store map[method][path]count
-	calls  map[string]map[string]int
-	router *httprouter.Router
+	calls map[string]map[string]int
+	// routes store map[method][path]handler
+	routes map[string]map[string]ServerHandlerFunc
 }
 
 type Request struct {
 	*http.Request
-	Params httprouter.Params
+	Params Params
 }
 
 // ServerHandlerFunc is the interface of the handler function.
@@ -36,17 +37,15 @@ func NewServer(address string, config ServerConfig) (*Server, error) {
 		panic(err)
 	}
 
-	router := httprouter.New()
-
 	httpServer := &http.Server{
 		Addr:    address,
-		Handler: router,
+		Handler: http.NewServeMux(),
 	}
 
 	server := &Server{
 		httpServer: httpServer,
 		calls:      map[string]map[string]int{},
-		router:     router,
+		routes:     map[string]map[string]ServerHandlerFunc{},
 	}
 
 	go func() {
@@ -88,18 +87,56 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 	if s.calls[method] == nil {
 		s.calls[method] = map[string]int{}
 	}
+	if s.routes[method] == nil {
+		s.routes[method] = map[string]ServerHandlerFunc{}
+	}
 
-	s.router.Handle(method, path, func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	if s.routes[method] != nil && s.routes[method][path] != nil {
+		// Regenerate the handler and re-register all handlers.
+		serveMux := http.NewServeMux()
+		for m, p := range s.routes {
+			for k, v := range p {
+				if m == method && k == path {
+					continue
+				}
+				serveMux.HandleFunc(k, func(w http.ResponseWriter, r *http.Request) {
+					s.calls[m][k]++
+					v(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
+				})
+			}
+		}
+		s.httpServer.Handler = serveMux
+	} else {
+		s.routes[method][path] = handler
+	}
+
+	serveMux := s.httpServer.Handler.(*http.ServeMux)
+	serveMux.HandleFunc(s.combinePath(method, path), func(w http.ResponseWriter, r *http.Request) {
 		s.calls[method][path]++
-		handler(ResponseWriter{w: w}, &Request{
-			Request: r,
-			Params:  params,
-		})
+		handler(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
 	})
+
+	s.httpServer.Handler = serveMux
 }
 
 // ResetAll resets all the calls and handlers.
 func (s *Server) ResetAll() {
-	s.router.ClearHandlers()
+	s.httpServer.Handler = http.NewServeMux()
 	s.calls = map[string]map[string]int{}
+	s.routes = map[string]map[string]ServerHandlerFunc{}
+}
+
+// combinePath combines method and path & converts the path.
+// Example: combinePath(GET, /path/:param) -> GET /path/{param}
+func (s *Server) combinePath(method, path string) string {
+	return fmt.Sprintf("%s %s", method, s.convertPathParams(path))
+}
+
+// convertPathParams converts from "/path/:param" to "/path/{param}" to comply with the standard library.
+func (s *Server) convertPathParams(input string) string {
+	pattern := `:([^/]+)`
+	re := regexp.MustCompile(pattern)
+	converted := re.ReplaceAllString(input, "{$1}")
+
+	return converted
 }

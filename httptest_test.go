@@ -9,10 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
-
 	httptest "github.com/slzhffktm/go-http-test"
 	"github.com/slzhffktm/go-http-test/internal/httpclient"
+	"github.com/stretchr/testify/suite"
 )
 
 const baseURL = "http://127.0.0.1:3001"
@@ -214,10 +213,16 @@ func (s *serverTestSuite) TestReregisterHandler_ShouldOverwrite() {
 	defer server.Close()
 
 	path := "/some-path/subpath"
+	path2 := "/some-path2"
 	expectedResBody := []byte(`{"res":"ponse"}`)
 
 	server.RegisterHandler(http.MethodGet, path, func(w httptest.ResponseWriter, r *httptest.Request) {
 		w.SetStatusCode(http.StatusOK)
+		w.SetBodyBytes(expectedResBody)
+	})
+
+	server.RegisterHandler(http.MethodPost, path2, func(w httptest.ResponseWriter, r *httptest.Request) {
+		w.SetStatusCode(http.StatusCreated)
 		w.SetBodyBytes(expectedResBody)
 	})
 
@@ -239,6 +244,19 @@ func (s *serverTestSuite) TestReregisterHandler_ShouldOverwrite() {
 	s.Equal("header", res.Header.Get("some"))
 
 	s.Equal(1, server.GetNCalls(http.MethodGet, path))
+
+	// Make sure that other path is still working.
+	res, _, err = s.httpClient.Do(
+		ctx,
+		http.MethodPost,
+		path2,
+		nil,
+		nil,
+		nil,
+	)
+	s.NoError(err)
+	s.Equal(201, res.StatusCode)
+	s.Equal(1, server.GetNCalls(http.MethodPost, path2))
 }
 
 func (s *serverTestSuite) TestSimulateTimeout() {

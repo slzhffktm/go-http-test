@@ -4,7 +4,6 @@ go 1.22
 
 require (
 	github.com/joho/godotenv v1.5.1
-	github.com/slzhffktm/httprouter v0.0.3
 	github.com/stretchr/testify v1.8.4
 )
 
