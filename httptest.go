@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sync"
 )
 
 // Server is a mock http server for testing.
@@ -15,6 +16,8 @@ type Server struct {
 	calls map[string]map[string]int
 	// routes store map[method][path]handler
 	routes map[string]map[string]ServerHandlerFunc
+
+	mu sync.Mutex
 }
 
 type Request struct {
@@ -74,6 +77,9 @@ func (s *Server) GetNCalls(method, path string) int {
 
 // ResetNCalls resets the number of calls for all paths.
 func (s *Server) ResetNCalls() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	for path := range s.calls {
 		for method := range s.calls[path] {
 			s.calls[path][method] = 0
@@ -84,6 +90,9 @@ func (s *Server) ResetNCalls() {
 // RegisterHandler registers handler of a path.
 // Registering same path twice will overwrite the previous handler.
 func (s *Server) RegisterHandler(method string, path string, handler ServerHandlerFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.calls[method] == nil {
 		s.calls[method] = map[string]int{}
 	}
@@ -121,6 +130,9 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 
 // ResetAll resets all the calls and handlers.
 func (s *Server) ResetAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.httpServer.Handler = http.NewServeMux()
 	s.calls = map[string]map[string]int{}
 	s.routes = map[string]map[string]ServerHandlerFunc{}
