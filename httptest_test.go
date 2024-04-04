@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const baseURL = "http://127.0.0.1:3001"
-const address = "127.0.0.1:3001"
+const baseURL = "http://127.0.0.1:3010"
+const address = "127.0.0.1:3010"
 
 var (
 	ctx = context.Background()

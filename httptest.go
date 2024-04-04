@@ -115,9 +115,8 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 			}
 		}
 		s.httpServer.Handler = serveMux
-	} else {
-		s.routes[method][path] = handler
 	}
+	s.routes[method][path] = handler
 
 	serveMux := s.httpServer.Handler.(*http.ServeMux)
 	serveMux.HandleFunc(s.combinePath(method, path), func(w http.ResponseWriter, r *http.Request) {
