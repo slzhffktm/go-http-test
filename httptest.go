@@ -109,7 +109,7 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 					continue
 				}
 				serveMux.HandleFunc(k, func(w http.ResponseWriter, r *http.Request) {
-					s.calls[m][k]++
+					s.IncrNCalls(m, k)
 					v(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
 				})
 			}
@@ -120,11 +120,19 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 
 	serveMux := s.httpServer.Handler.(*http.ServeMux)
 	serveMux.HandleFunc(s.combinePath(method, path), func(w http.ResponseWriter, r *http.Request) {
-		s.calls[method][path]++
+		s.IncrNCalls(method, path)
 		handler(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
 	})
 
 	s.httpServer.Handler = serveMux
+}
+
+// IncrNCalls increments the number of calls for a path.
+func (s *Server) IncrNCalls(method, path string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.calls[method][path]++
 }
 
 // ResetAll resets all the calls and handlers.

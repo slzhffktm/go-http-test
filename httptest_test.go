@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/suite"
+
 	httptest "github.com/slzhffktm/go-http-test"
 	"github.com/slzhffktm/go-http-test/internal/httpclient"
-	"github.com/stretchr/testify/suite"
 )
 
 const baseURL = "http://127.0.0.1:3010"
