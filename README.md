@@ -2,7 +2,7 @@
 
 go-http-test is a library for Go that provides a convenient way to start a new HTTP server at a desired address and enables you to perform various HTTP testing scenarios with ease.
 This library is especially useful for writing unit tests and end-to-end tests for HTTP-based applications in Go.
-This library also supports path parameter using `/:pathparam` or `/{pathparam}`.
+This library also supports path parameter using `/:pathparam`.
 
 ## Features
 
