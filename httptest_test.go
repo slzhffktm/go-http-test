@@ -48,6 +48,7 @@ func (s *serverTestSuite) TestNotRegisteredPath() {
 		nil,
 		nil,
 	)
+	s.NoError(err)
 	s.Equal(http.StatusNotFound, res.StatusCode)
 }
 
@@ -56,7 +57,7 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 	s.NoError(err)
 	defer server.Close()
 
-	path := "/some-path"
+	path := "/some-path/:id"
 	expectedReqBody := []byte(`{"test":"osterone"}`)
 	expectedResBody := []byte(`{"abcd":"abcd","efgh":1}`)
 
@@ -67,7 +68,7 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 
 	server.RegisterHandler(http.MethodPost, path, func(w httptest.ResponseWriter, r *httptest.Request) {
 		s.Equal(http.MethodPost, r.Method)
-		s.Equal(path, r.URL.Path)
+		s.Equal("/some-path/123", r.URL.Path)
 
 		reqBody, err := io.ReadAll(r.Body)
 		s.NoError(err)
@@ -83,7 +84,7 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 	res, resBody, err := s.httpClient.Do(
 		ctx,
 		http.MethodPost,
-		path,
+		"/some-path/123?abcd=def",
 		map[string]string{
 			"Content-Type": "application/json",
 		},
@@ -96,6 +97,18 @@ func (s *serverTestSuite) TestPost_ResponseJSON() {
 	s.Equal(expectedResBody, resBody)
 
 	s.Equal(1, server.GetNCalls(http.MethodPost, path))
+
+	// Get Call.
+	calls := server.GetCalls(http.MethodPost, path)
+	s.Equal(1, len(calls))
+	s.Equal(expectedReqBody, calls[0].Body)
+	s.Equal(url.Values{
+		"abcd": {"def"},
+	}, calls[0].Query)
+	s.Equal(map[string]string{
+		"id": "123",
+	}, calls[0].Params)
+	s.Equal("application/json", calls[0].Headers.Get("Content-Type"))
 }
 
 func (s *serverTestSuite) TestGet_WithQueryParams() {
@@ -315,4 +328,5 @@ func (s *serverTestSuite) TestResetAll() {
 	s.Equal(http.StatusNotFound, res.StatusCode)
 
 	s.Equal(0, server.GetNCalls(http.MethodGet, path))
+	s.Equal(0, len(server.GetCalls(http.MethodGet, path)))
 }

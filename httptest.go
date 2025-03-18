@@ -1,21 +1,27 @@
 package httptest
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
-	"regexp"
+	"net/url"
 	"sync"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Server is a mock http server for testing.
 type Server struct {
 	httpServer *http.Server
-	// calls store map[method][path]count
-	calls map[string]map[string]int
+	engine     *gin.Engine
+	// nCalls store map[method][path]count
+	nCalls map[string]map[string]int
 	// routes store map[method][path]handler
 	routes map[string]map[string]ServerHandlerFunc
+	calls  map[string]map[string][]RequestMade
 
 	mu sync.Mutex
 }
@@ -23,6 +29,13 @@ type Server struct {
 type Request struct {
 	*http.Request
 	Params Params
+}
+
+type RequestMade struct {
+	Body    []byte
+	Headers http.Header
+	Query   url.Values
+	Params  map[string]string
 }
 
 // ServerHandlerFunc is the interface of the handler function.
@@ -35,20 +48,28 @@ type ServerConfig struct {
 // NewServer creates and starts new http test server.
 // address is the address to listen on, e.g. "localhost:3001".
 func NewServer(address string, config ServerConfig) (*Server, error) {
+	// Set gin to release mode to avoid unnecessary logs.
+	gin.SetMode(gin.ReleaseMode)
+
+	// Start listener first to make sure the address is available.
 	l, err := net.Listen("tcp", address)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("net.Listen: %w", err)
 	}
+
+	r := gin.Default()
 
 	httpServer := &http.Server{
 		Addr:    address,
-		Handler: http.NewServeMux(),
+		Handler: r.Handler(),
 	}
 
 	server := &Server{
+		engine:     r,
 		httpServer: httpServer,
-		calls:      map[string]map[string]int{},
+		nCalls:     map[string]map[string]int{},
 		routes:     map[string]map[string]ServerHandlerFunc{},
+		calls:      map[string]map[string][]RequestMade{},
 	}
 
 	go func() {
@@ -65,9 +86,9 @@ func (s *Server) Close() error {
 	return s.httpServer.Close()
 }
 
-// GetNCalls returns the number of calls for a path.
+// GetNCalls returns the number of nCalls for a path.
 func (s *Server) GetNCalls(method, path string) int {
-	calls, ok := s.calls[method][path]
+	calls, ok := s.nCalls[method][path]
 	if !ok {
 		return 0
 	}
@@ -75,14 +96,33 @@ func (s *Server) GetNCalls(method, path string) int {
 	return calls
 }
 
-// ResetNCalls resets the number of calls for all paths.
+// ResetNCalls resets the number of nCalls for all paths.
 func (s *Server) ResetNCalls() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	for path := range s.nCalls {
+		for method := range s.nCalls[path] {
+			s.nCalls[path][method] = 0
+		}
+	}
+}
+
+// GetCalls returns the calls for a path.
+func (s *Server) GetCalls(method, path string) []RequestMade {
+	return s.calls[method][path]
+}
+
+// ResetCalls resets the calls & nCalls for all paths.
+// It does not reset the handlers.
+func (s *Server) ResetCalls() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.ResetNCalls()
 	for path := range s.calls {
 		for method := range s.calls[path] {
-			s.calls[path][method] = 0
+			s.calls[path][method] = []RequestMade{}
 		}
 	}
 }
@@ -93,69 +133,92 @@ func (s *Server) RegisterHandler(method string, path string, handler ServerHandl
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.calls[method] == nil {
-		s.calls[method] = map[string]int{}
+	if s.nCalls[method] == nil {
+		s.nCalls[method] = map[string]int{}
 	}
 	if s.routes[method] == nil {
 		s.routes[method] = map[string]ServerHandlerFunc{}
 	}
+	if s.calls[method] == nil {
+		s.calls[method] = map[string][]RequestMade{}
+	}
 
 	if s.routes[method] != nil && s.routes[method][path] != nil {
 		// Regenerate the handler and re-register all handlers.
-		serveMux := http.NewServeMux()
+		s.engine = gin.Default()
 		for m, p := range s.routes {
 			for k, v := range p {
+				// Skip same one, we'll register it below.
 				if m == method && k == path {
 					continue
 				}
-				serveMux.HandleFunc(k, func(w http.ResponseWriter, r *http.Request) {
-					s.IncrNCalls(m, k)
-					v(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
+				s.engine.Handle(m, k, func(c *gin.Context) {
+					s.incrNCalls(m, k)
+					s.storeCall(m, k, c)
+					v(ResponseWriter{w: c.Writer}, &Request{Request: c.Request, Params: Params{ginContext: c}})
 				})
 			}
 		}
-		s.httpServer.Handler = serveMux
+		s.httpServer.Handler = s.engine.Handler()
 	}
 	s.routes[method][path] = handler
 
-	serveMux := s.httpServer.Handler.(*http.ServeMux)
-	serveMux.HandleFunc(s.combinePath(method, path), func(w http.ResponseWriter, r *http.Request) {
-		s.IncrNCalls(method, path)
-		handler(ResponseWriter{w: w}, &Request{Request: r, Params: Params{request: r}})
+	s.engine.Handle(method, path, func(c *gin.Context) {
+		s.incrNCalls(method, path)
+		s.storeCall(method, path, c)
+		handler(ResponseWriter{w: c.Writer}, &Request{Request: c.Request, Params: Params{ginContext: c}})
 	})
 
-	s.httpServer.Handler = serveMux
+	s.httpServer.Handler = s.engine.Handler()
 }
 
-// IncrNCalls increments the number of calls for a path.
-func (s *Server) IncrNCalls(method, path string) {
+// incrNCalls increments the number of nCalls for a path.
+func (s *Server) incrNCalls(method, path string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.calls[method][path]++
+	s.nCalls[method][path]++
 }
 
-// ResetAll resets all the calls and handlers.
+// storeCall stores the call for a path.
+func (s *Server) storeCall(method, path string, c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// If body is not empty, read it into byte.
+	var body []byte
+	if c.Request.Body != nil {
+		body, _ = io.ReadAll(c.Request.Body)
+		// Restore the body.
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	}
+
+	s.calls[method][path] = append(s.calls[method][path], RequestMade{
+		Body:    body,
+		Headers: c.Request.Header,
+		Query:   c.Request.URL.Query(),
+		Params:  s.getAllParams(c),
+	})
+}
+
+func (s *Server) getAllParams(c *gin.Context) map[string]string {
+	params := make(map[string]string)
+
+	for _, param := range c.Params {
+		params[param.Key] = param.Value
+	}
+
+	return params
+}
+
+// ResetAll resets all the nCalls, handlers, and calls.
 func (s *Server) ResetAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.httpServer.Handler = http.NewServeMux()
-	s.calls = map[string]map[string]int{}
+	s.engine = gin.Default()
+	s.httpServer.Handler = s.engine.Handler()
+	s.nCalls = map[string]map[string]int{}
 	s.routes = map[string]map[string]ServerHandlerFunc{}
-}
-
-// combinePath combines method and path & converts the path.
-// Example: combinePath(GET, /path/:param) -> GET /path/{param}
-func (s *Server) combinePath(method, path string) string {
-	return fmt.Sprintf("%s %s", method, s.convertPathParams(path))
-}
-
-// convertPathParams converts from "/path/:param" to "/path/{param}" to comply with the standard library.
-func (s *Server) convertPathParams(input string) string {
-	pattern := `:([^/]+)`
-	re := regexp.MustCompile(pattern)
-	converted := re.ReplaceAllString(input, "{$1}")
-
-	return converted
+	s.calls = map[string]map[string][]RequestMade{}
 }

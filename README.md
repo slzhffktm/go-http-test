@@ -15,7 +15,7 @@ This library also supports path parameter using `/:pathparam` or `/{pathparam}`.
 
 ## Installation
 
-To use go-http-test in your Go projects, you need to have Go (>=1.22) installed and set up. Then, you can install the library using `go get`:
+To use go-http-test in your Go projects, you need to have Go (>=1.23) installed and set up. Then, you can install the library using `go get`:
 
 ```bash
 go get github.com/slzhffktm/go-http-test
